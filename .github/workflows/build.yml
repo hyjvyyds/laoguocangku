@@ -28,16 +28,22 @@ jobs:
         run: |
           echo 'LS0tIGEvZHJpdmVycy92aWRlby9tc20vbWRzcy9tZHNzX2hkbWlfdHguYworKysgYi9kcml2ZXJzL3ZpZGVvL21zbS9tZHNzL21kc3NfaGRtaV90eC5jCkBAIC0xMjIzLDcgKzEyMjMsMTcgQEAKIAkJRFNTX1JFR19XX05EKGlvLCBIRE1JX0REQ19BUkJJVFJBVElPTiAsCiAJCQlEU1NfUkVHX1IoaW8sIEhETUlfRERDX0FSQklUUkFUSU9OKSAmIH4oQklUKDQpKSk7CiAKLQkJaGRtaV90eF9yZWFkX3NpbmtfaW5mbyhoZG1pX2N0cmwpOworCQl7CisJCQlpbnQgZWRpZF90cmllcywgc3RhdHVzID0gMDsKKwkJCWZvciAoZWRpZF90cmllcyA9IDA7IGVkaWRfdHJpZXMgPCA1OyBlZGlkX3RyaWVzKyspIHsKKwkJCQlzdGF0dXMgPSBoZG1pX3R4X3JlYWRfc2lua19pbmZvKGhkbWlfY3RybCk7CisJCQkJaWYgKCFzdGF0dXMpCisJCQkJCWJyZWFrOworCQkJCURFVl9XQVJOKCIlczogRURJRCByZWFkIGF0dGVtcHQgJWQgZmFpbGVkIChDQlVTLUREQyBBQk9SVD8pLCByZXRyeWluZ1xuIiwKKwkJCQkJX19mdW5jX18sIGVkaWRfdHJpZXMgKyAxKTsKKwkJCQltc2xlZXAoNjApOworCQkJfQorCQl9CiAJCWhkbWlfdHhfc2VuZF9jYWJsZV9ub3RpZmljYXRpb24oaGRtaV9jdHJsLCAxKTsKIAkJREVWX0lORk8oIiVzOiBzZW5zZSBjYWJsZSBDT05ORUNURUQ6IHN0YXRlIHN3aXRjaCB0byAlZFxuIiwKIAkJCV9fZnVuY19fLCBoZG1pX2N0cmwtPnNkZXYuc3RhdGUpOwo=' | base64 -d > mhl_edid_retry.patch
           cd kernel
-          git apply mhl_edid_retry.patch
+          git apply ../mhl_edid_retry.patch || patch -p1 -l --fuzz=3 < ../mhl_edid_retry.patch
           cd ..
 
       - name: Build kernel (m8_defconfig, ARCH=arm)
         run: |
+          set +o pipefail
           export ARCH=arm
           export CROSS_COMPILE=$PWD/toolchain/bin/arm-linux-androideabi-
           cd kernel
           make m8_defconfig
-          make -j$(nproc) zImage-dtb 2>&1 | tail -30
+          make -j"$(nproc)" zImage-dtb 2>&1 | tee /tmp/build.log
+          if [ ! -f arch/arm/boot/zImage-dtb ]; then
+            echo "BUILD FAILED: zImage-dtb not produced"
+            tail -n 60 /tmp/build.log
+            exit 1
+          fi
           cd ..
 
       - name: Show build output
